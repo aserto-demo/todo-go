@@ -124,22 +124,23 @@ func main() {
 	}
 
 
+	db, err := store.NewStore()
+	if err != nil {
+		log.Fatal("Failed to create store:", err)
+	}
 
-
-
-	store, err := store.NewStore()
-	directory := directory.Directory{AuthorizerClient: authClient, Context: ctx}
-	server := server.Server{Store: store}
+	dir := directory.Directory{AuthorizerClient: authClient, Context: ctx}
+	srv := server.Server{Store: db}
 
 	router := mux.NewRouter()
 
-	router.HandleFunc("/user/{sub}", directory.GetUser).Methods("GET")
-	router.HandleFunc("/todos", server.GetTodos).Methods("GET")
-	router.HandleFunc("/todo", server.InsertTodo).Methods("POST")
-	router.HandleFunc("/todo", server.UpdateTodo).Methods("PUT")
-	router.HandleFunc("/todo", server.DeleteTodo).Methods("DELETE")
+	router.HandleFunc("/user/{sub}", dir.GetUser).Methods("GET")
+	router.HandleFunc("/todos", srv.GetTodos).Methods("GET")
+	router.HandleFunc("/todo", srv.InsertTodo).Methods("POST")
+	router.HandleFunc("/todo", srv.UpdateTodo).Methods("PUT")
+	router.HandleFunc("/todo", srv.DeleteTodo).Methods("DELETE")
 
 	router.Use(authorizer.Handler)
 
-	server.Start(router)
+	srv.Start(router)
 }
