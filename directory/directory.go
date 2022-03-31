@@ -1,107 +1,59 @@
 package directory
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"net/http"
-	"os"
-	"strings"
 
+	"github.com/aserto-dev/aserto-go/client/authorizer"
+	"github.com/aserto-dev/go-grpc/aserto/authorizer/directory/v1"
 	"github.com/gorilla/mux"
 )
 
-
-type User struct {
-	Id           string `json:"id"`
-	Display_name string `json:"display_name"`
-	Picture      string `json:"picture"`
-	Email        string `json:"email"`
+type Directory struct {
+	AuthorizerClient *authorizer.Client
+	Context          context.Context
 }
 
-type UserResult struct {
-	Result User `json:"result"`
+func (d *Directory) resolveUserID(sub string) (string, error) {
+	idResponse, err := d.AuthorizerClient.Directory.GetIdentity(d.Context,
+		&directory.GetIdentityRequest{Identity: sub},
+	)
+
+	return idResponse.GetId(), err
 }
 
-type UserId struct {
-	Id string `json:"id"`
-}
-type Sub struct {
-	Sub string `json:"sub"`
-}
+func (d *Directory) resolveUserByUserID(userID string) (*directory.GetUserResponse, error) {
+	userResponse, err := d.AuthorizerClient.Directory.GetUser(d.Context,
+		&directory.GetUserRequest{Id: userID},
+	)
 
-func resolveUserId(authorizerServiceUrl string, tenantID string, apiKey string, sub string) (string, error) {
-	client := &http.Client{}
-	url := authorizerServiceUrl + "/api/v1/dir/identities"
-
-	payload := strings.NewReader("{\"identity\":\""+ sub +"\"}")
-	req, requestError :=  http.NewRequest("POST", url, payload)
-
-	if requestError != nil {
-		return "", requestError
-	}
-
-	req.Header.Add("aserto-tenant-id", tenantID)
-	req.Header.Add("authorization", "basic " + apiKey)
-
-	resp, responseError := client.Do(req)
-
-	if responseError != nil {
-		return "", responseError
-	} else {
-		var userId UserId
-		err := json.NewDecoder(resp.Body).Decode(&userId)
-		if (err != nil) {
-			return "", err
-		}
-
-		return userId.Id, nil
-	}
+	return userResponse, err
 }
 
-func resolveUserByUserId(authorizerServiceUrl string, tenantID string, apiKey string, userId string) (User, error) {
-	client := &http.Client{}
-	var userResult UserResult
-	url := authorizerServiceUrl + "/api/v1/dir/users/" + userId + "?fields.mask=id,display_name,picture,email"
-
-	req, requestError :=  http.NewRequest("GET", url, nil)
-
-	if requestError != nil {
-		return User{}, requestError
-	}
-
-	req.Header.Add("aserto-tenant-id", tenantID)
-	req.Header.Add("authorization", "basic " + apiKey)
-
-	resp, responseError := client.Do(req)
-
-	if responseError != nil {
-		return User{}, responseError
-	} else {
-		json.NewDecoder(resp.Body).Decode(&userResult)
-		return userResult.Result, nil
-	}
-}
-
-func resolveUser(authorizerServiceUrl string, tenantID string, apiKey string, sub string) (User, error){
-	userId, err := resolveUserId(authorizerServiceUrl, tenantID, apiKey, sub)
+func (d *Directory) resolveUser(sub string) (*directory.GetUserResponse, error) {
+	userID, err := d.resolveUserID(sub)
 	if err != nil {
-		return User{}, err
+		return nil, err
 	}
-	return resolveUserByUserId(authorizerServiceUrl, tenantID, apiKey, userId)
+	userResponse, err := d.resolveUserByUserID(userID)
+
+	return userResponse, err
+
 }
 
-func GetUser(w http.ResponseWriter, r *http.Request){
-		sub := mux.Vars(r)["sub"]
+func (d *Directory) GetUser(w http.ResponseWriter, r *http.Request) {
+	sub := mux.Vars(r)["sub"]
 
-		authorizerServiceUrl := os.Getenv("AUTHORIZER_SERVICE_ADDRESS")
-		apiKey := os.Getenv("AUTHORIZER_API_KEY")
-		tenantID := os.Getenv("TENANT_ID")
+	user, err := d.resolveUser(sub)
+	if err != nil {
+		log.Fatal("Failed to resolve users:", err)
+	}
 
-		user, err := resolveUser(authorizerServiceUrl, tenantID, apiKey, sub)
-		if err != nil {
-			log.Fatal("Failed to resolve users:", err)
-		}
-
-		w.Header().Add("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(user)
+	w.Header().Add("Content-Type", "application/json")
+	err = json.NewEncoder(w).Encode(user.Result)
+	if err != nil {
+		log.Fatal("Failed to decode users:", err)
+	}
 }

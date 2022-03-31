@@ -6,44 +6,84 @@ import (
 	"log"
 	"os"
 
-	"go-server/structs"
+	"todo-go/structs"
 
 	"github.com/blockloop/scan"
 
 	_ "github.com/mattn/go-sqlite3"
 )
 
-var DB *sql.DB
-var dbPath = "./todo.db"
+const dbPath = "./todo.db"
+
+const createTodoTableSQL = `CREATE TABLE IF NOT EXISTS todos (
+	ID TEXT PRIMARY KEY,
+	Title TEXT NOT NULL,
+	Completed BOOLEAN NOT NULL,
+	UserEmail TEXT NOT NULL,
+	UserSub TEXT NOT NULL
+);`
 
 type Todo = structs.Todo
-
-//Create the todos table
-func createTable(db *sql.DB) {
-	createTodoTableSql := `CREATE TABLE IF NOT EXISTS todos (
-    ID TEXT PRIMARY KEY,
-    Title TEXT NOT NULL,
-    Completed BOOLEAN NOT NULL,
-    UserEmail TEXT NOT NULL,
-    UserSub TEXT NOT NULL
-	);`
-
-	log.Println("Create todos table...")
-
-	statement, err := db.Prepare(createTodoTableSql) // Prepare SQL Statement
-	if err != nil {
-		log.Fatal(err.Error())
-	}
-	statement.Exec() // Execute SQL Statements
-	log.Println("todos table created")
+type Store struct {
+	DB *sql.DB
 }
 
-//Initialize the database
-func InitDB() {
+func (s *Store) GetTodos() ([]Todo, error) {
+	var todos []Todo
+
+	rows, err := s.DB.Query("SELECT * FROM todos")
+
+	if rows.Err() != nil {
+		return nil, rows.Err()
+	}
+
+	if err != nil {
+		return nil, err
+	} else {
+		scanErr := scan.Rows(&todos, rows)
+		if scanErr != nil {
+			return nil, scanErr
+		} else {
+			return todos, nil
+		}
+	}
+}
+
+func (s *Store) InsertTodo(todo Todo) error {
+	_, err := s.DB.Exec(`INSERT INTO todos (ID, UserEmail, Title, Completed, UserSub) VALUES (?, ?, ?, ?, ?)`, todo.ID, todo.UserEmail, todo.Title, todo.Completed, todo.UserSub)
+
+	if err != nil {
+		return err
+	} else {
+		return nil
+	}
+}
+
+func (s *Store) UpdateTodo(todo Todo) error {
+	_, err := s.DB.Exec(`UPDATE todos SET UserEmail=?, Title=?, UserSub=?, Completed=? WHERE ID=?`, todo.UserEmail, todo.Title, todo.UserSub, todo.Completed, todo.ID)
+
+	if err != nil {
+		return err
+	} else {
+		return nil
+	}
+}
+
+func (s *Store) DeleteTodo(todo Todo) error {
+	_, err := s.DB.Exec(`DELETE FROM todos WHERE ID=?`, todo.ID)
+
+	if err != nil {
+		return err
+	} else {
+		return nil
+	}
+}
+
+func NewStore() (*Store, error) {
 	log.Println("Creating todo.db...")
-	if _, fileExistsError := os.Stat(dbPath); os.IsNotExist(fileExistsError){
+	if _, fileExistsError := os.Stat(dbPath); os.IsNotExist(fileExistsError) {
 		file, err := os.Create(dbPath)
-			if err != nil {
+		if err != nil {
 			log.Fatal(err.Error())
 		}
 		file.Close()
@@ -52,57 +92,25 @@ func InitDB() {
 
 	sqliteDatabase, _ := sql.Open("sqlite3", dbPath) // Open the created SQLite File
 
-	createTable(sqliteDatabase)
-	DB = sqliteDatabase
+	createTableErr := createTable(sqliteDatabase)
+	if createTableErr != nil {
+		return nil, createTableErr
+	}
+	return &Store{DB: sqliteDatabase}, nil
 }
 
-//Get all todos
-func GetTodos() ([]Todo, error) {
-	var todos []Todo
+func createTable(db *sql.DB) error {
+	log.Println("Create todos table...")
 
-	rows, err := DB.Query("SELECT * FROM todos")
-
+	statement, err := db.Prepare(createTodoTableSQL) // Prepare SQL Statement
 	if err != nil {
-		return nil, err
-	} else {
-		scanErr := scan.Rows(&todos, rows)
-		if (scanErr != nil) {
-			return nil, scanErr
-		} else {
-			return todos, nil
-		}
+		log.Fatal(err.Error())
 	}
-}
-
-//Insert a todo
-func InsertTodo(todo Todo) error {
-	_, err := DB.Exec(`INSERT INTO todos (ID, UserEmail, Title, Completed, UserSub) VALUES (?, ?, ?, ?, ?)`, todo.ID, todo.UserEmail, todo.Title, todo.Completed, todo.UserSub)
-
-	if err != nil {
-		return err
-	} else {
-		return nil
+	_, execErr := statement.Exec()
+	if execErr != nil {
+		log.Fatal(execErr.Error())
+		return execErr
 	}
-}
-
-//Update a todo
-func UpdateTodo(todo Todo) error {
-	_, err := DB.Exec(`UPDATE todos SET UserEmail=?, Title=?, UserSub=?, Completed=? WHERE ID=?`, todo.UserEmail, todo.Title, todo.UserSub, todo.Completed, todo.ID)
-
-	if err != nil {
-		return err
-	} else {
-		return nil
-	}
-}
-
-//Delete a todo
-func DeleteTodo(todo Todo) error {
-	_, err := DB.Exec(`DELETE FROM todos WHERE ID=?`, todo.ID)
-
-	if err != nil {
-		return err
-	} else {
-		return nil
-	}
+	log.Println("todos table created")
+	return nil
 }

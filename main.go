@@ -16,22 +16,18 @@ import (
 
 	"github.com/aserto-dev/aserto-go/authorizer/grpc"
 	"github.com/aserto-dev/aserto-go/client"
+	authz "github.com/aserto-dev/aserto-go/client/authorizer"
 	"github.com/aserto-dev/aserto-go/middleware"
 	"github.com/aserto-dev/aserto-go/middleware/http/std"
 	"github.com/gorilla/mux"
 
-	"go-server/directory"
-	"go-server/server"
-	"go-server/store"
+	"todo-go/directory"
+	"todo-go/server"
+	"todo-go/store"
+	"todo-go/structs"
 )
 
-type Todo struct {
-	ID        string `storm:"id"`
-	Title     string
-	Completed bool
-	UserEmail string
-	UserSub   string
-}
+type Todo = structs.Todo
 
 func GetOwnerEmail(r io.Reader) (string, error) {
 	var todo Todo
@@ -97,8 +93,8 @@ func AsertoAuthorizer(addr, tenantID, apiKey, policyID, policyRoot, decision str
 }
 
 func main() {
-	err := godotenv.Load()
-	if err != nil {
+	// Load environment variables
+	if err := godotenv.Load(); err != nil {
 		log.Fatal("Error loading .env file")
 	}
 
@@ -113,12 +109,28 @@ func main() {
 	policyRoot := os.Getenv("POLICY_ROOT")
 	decision := "allowed"
 
+	ctx := context.Background()
+	authClient, err := authz.New(
+			ctx,
+			client.WithAddr("authorizer.prod.aserto.com:8443"),
+			client.WithTenantID(tenantID),
+			client.WithAPIKeyAuth(apiKey),
+	)
+
+	// Initialize the authorizer
 	authorizer, err := AsertoAuthorizer(authorizerAddr, tenantID, apiKey, policyID, policyRoot, decision)
 	if err != nil {
 		log.Fatal("Failed to create authorizer:", err)
 	}
 
-	store.InitDB()
+
+
+
+
+	store, err := store.NewStore()
+	directory := directory.Directory{AuthorizerClient: authClient, Context: ctx}
+	server := server.Server{Store: store}
+
 	router := mux.NewRouter()
 
 	router.HandleFunc("/user/{sub}", directory.GetUser).Methods("GET")

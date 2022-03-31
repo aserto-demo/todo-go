@@ -1,4 +1,4 @@
-module go-server
+module todo-go
 
 go 1.17
 

@@ -6,25 +6,33 @@ import (
 	"log"
 	"net/http"
 
-	"go-server/store"
-	"go-server/structs"
+	"todo-go/store"
+	"todo-go/structs"
 )
 
 type Todo = structs.Todo
 
-func GetTodos(w http.ResponseWriter, r *http.Request) {
+type Server struct {
+	Store *store.Store
+}
+
+func (s *Server) GetTodos(w http.ResponseWriter, r *http.Request) {
 	var todos []Todo
 
-	todos, err := store.GetTodos()
+	todos, err := s.Store.GetTodos()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	} else {
 		w.Header().Add("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(todos)
+		jsonEncodeErr := json.NewEncoder(w).Encode(todos)
+		if jsonEncodeErr != nil {
+			http.Error(w, jsonEncodeErr.Error(), http.StatusBadRequest)
+			return
+		}
 	}
 }
 
-func InsertTodo(w http.ResponseWriter, r *http.Request) {
+func (s *Server) InsertTodo(w http.ResponseWriter, r *http.Request) {
 	var todo Todo
 	jsonErr := json.NewDecoder(r.Body).Decode(&todo)
 	if jsonErr != nil {
@@ -32,16 +40,20 @@ func InsertTodo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := store.InsertTodo(todo)
+	err := s.Store.InsertTodo(todo)
 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	} else {
-		json.NewEncoder(w).Encode(todo)
+		jsonEncodeErr := json.NewEncoder(w).Encode(todo)
+		if jsonEncodeErr != nil {
+			http.Error(w, jsonEncodeErr.Error(), http.StatusBadRequest)
+			return
+		}
 	}
 }
 
-func UpdateTodo(w http.ResponseWriter, r *http.Request) {
+func (s *Server) UpdateTodo(w http.ResponseWriter, r *http.Request) {
 	var todo Todo
 	jsonErr := json.NewDecoder(r.Body).Decode(&todo)
 	if jsonErr != nil {
@@ -49,16 +61,20 @@ func UpdateTodo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := store.UpdateTodo(todo)
+	err := s.Store.UpdateTodo(todo)
 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	} else {
-		json.NewEncoder(w).Encode(todo)
+		jsonEncodeErr := json.NewEncoder(w).Encode(todo)
+		if jsonEncodeErr != nil {
+			http.Error(w, jsonEncodeErr.Error(), http.StatusBadRequest)
+			return
+		}
 	}
 }
 
-func DeleteTodo(w http.ResponseWriter, r *http.Request) {
+func (s *Server) DeleteTodo(w http.ResponseWriter, r *http.Request) {
 	var todo Todo
 	jsonErr := json.NewDecoder(r.Body).Decode(&todo)
 	if jsonErr != nil {
@@ -66,7 +82,7 @@ func DeleteTodo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := store.DeleteTodo(todo)
+	err := s.Store.DeleteTodo(todo)
 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -75,7 +91,7 @@ func DeleteTodo(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func CORS(h http.Handler) http.Handler {
+func cors(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		origin := r.Header.Get("Origin")
 		w.Header().Set("Access-Control-Allow-Origin", origin)
@@ -90,11 +106,11 @@ func CORS(h http.Handler) http.Handler {
 	})
 }
 
-func Start(handler http.Handler) {
+func (s *Server) Start(handler http.Handler) {
 	fmt.Println("Staring server on 0.0.0.0:8080")
 
 	srv := http.Server{
-		Handler: CORS(handler),
+		Handler: cors(handler),
 		Addr:    "0.0.0.0:8080",
 	}
 	log.Fatal(srv.ListenAndServe())
