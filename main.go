@@ -1,17 +1,15 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 
 	"github.com/joho/godotenv"
+	"github.com/pkg/errors"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/aserto-dev/aserto-go/authorizer/grpc"
@@ -34,12 +32,35 @@ type Todo struct {
 }
 
 func GetOwnerEmail(r io.Reader) (string, error) {
-	var todo Todo
-	jsonErr := json.NewDecoder(r).Decode(&todo)
-	if jsonErr != nil {
-		return "", errors.New("Failed decoding JSON " + jsonErr.Error())
+	todo := Todo{}
+	err := json.NewDecoder(r).Decode(&todo)
+	if err != nil {
+		return "", errors.Wrap(err, "Failed decoding JSON ")
 	}
 	return todo.UserEmail, nil
+}
+
+func EmailResourceMapperr(r *http.Request) *structpb.Struct {
+	defer r.Body.Close()
+
+	email, err := GetOwnerEmail(r.Body)
+
+	if err != nil {
+		log.Println("Failed to get Owner Email:", err)
+		return nil
+	}
+
+	v := map[string]interface{}{
+		"ownerEmail": email,
+	}
+
+	resourceContext, err := structpb.NewStruct(v)
+	if err != nil {
+		log.Println(err)
+		return nil
+	}
+
+	return resourceContext
 }
 
 func AsertoAuthorizer(addr, tenantID, apiKey, policyID, policyRoot, decision string) (*std.Middleware, error) {
@@ -62,38 +83,11 @@ func AsertoAuthorizer(addr, tenantID, apiKey, policyID, policyRoot, decision str
 			ID:       policyID,
 			Decision: decision,
 		},
-	)
+	).WithResourceMapper(EmailResourceMapperr).WithPolicyFromURL(policyRoot).WithPolicyFromURL(policyRoot)
 
-	mw.Identity.JWT().FromHeader("Authorization")
+	mw.Identity = mw.Identity.JWT().FromHeader("Authorization")
 
-	mw.WithResourceMapper(
-		func(r *http.Request) *structpb.Struct {
-
-			bodyBytes, _ := ioutil.ReadAll(r.Body)
-			r.Body.Close() //  must close
-			r.Body = ioutil.NopCloser(bytes.NewBuffer(bodyBytes))
-
-			var email, getOwnerEmailError = GetOwnerEmail(bytes.NewReader(bodyBytes))
-
-			if getOwnerEmailError != nil {
-				log.Println("Failed to get Owner Email:", getOwnerEmailError)
-			}
-
-			v := map[string]interface{}{
-				"ownerEmail": email,
-			}
-
-			resourceContext, err := structpb.NewStruct(v)
-			if err != nil {
-				log.Println(err)
-			}
-			return resourceContext
-		},
-	)
-
-	mw.WithPolicyFromURL(policyRoot)
 	return mw, nil
-
 }
 
 func main() {
@@ -113,9 +107,9 @@ func main() {
 	policyRoot := os.Getenv("POLICY_ROOT")
 	decision := "allowed"
 
-	authorizer, err := AsertoAuthorizer(authorizerAddr, tenantID, apiKey, policyID, policyRoot, decision)
+	authzMiddleware, err := AsertoAuthorizer(authorizerAddr, tenantID, apiKey, policyID, policyRoot, decision)
 	if err != nil {
-		log.Fatal("Failed to create authorizer:", err)
+		log.Fatal("Failed to create authorizer middleware:", err)
 	}
 
 	store.InitDB()
@@ -127,7 +121,7 @@ func main() {
 	router.HandleFunc("/todo", server.UpdateTodo).Methods("PUT")
 	router.HandleFunc("/todo", server.DeleteTodo).Methods("DELETE")
 
-	router.Use(authorizer.Handler)
+	router.Use(authzMiddleware.Handler)
 
 	server.Start(router)
 }
