@@ -4,9 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -14,11 +12,11 @@ import (
 	"github.com/joho/godotenv"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	"github.com/aserto-dev/aserto-go/authorizer/grpc"
 	"github.com/aserto-dev/aserto-go/client"
 	authz "github.com/aserto-dev/aserto-go/client/authorizer"
 	"github.com/aserto-dev/aserto-go/middleware"
 	"github.com/aserto-dev/aserto-go/middleware/http/std"
+	"github.com/aserto-dev/go-grpc-authz/aserto/authorizer/authorizer/v1"
 	"github.com/gorilla/mux"
 
 	"todo-go/directory"
@@ -29,28 +27,7 @@ import (
 
 type Todo = structs.Todo
 
-func GetOwnerEmail(r io.Reader) (string, error) {
-	var todo Todo
-	jsonErr := json.NewDecoder(r).Decode(&todo)
-	if jsonErr != nil {
-		return "", errors.New("Failed decoding JSON " + jsonErr.Error())
-	}
-	return todo.UserEmail, nil
-}
-
-func AsertoAuthorizer(addr, tenantID, apiKey, policyID, policyRoot, decision string) (*std.Middleware, error) {
-
-	ctx := context.Background()
-	authClient, err := grpc.New(
-		ctx,
-		client.WithAddr(addr),
-		client.WithTenantID(tenantID),
-		client.WithAPIKeyAuth(apiKey),
-	)
-
-	if err != nil {
-		return nil, err
-	}
+func AsertoAuthorizer(authClient authorizer.AuthorizerClient, policyID, policyRoot, decision string) *std.Middleware {
 
 	mw := std.New(
 		authClient,
@@ -65,18 +42,19 @@ func AsertoAuthorizer(addr, tenantID, apiKey, policyID, policyRoot, decision str
 	mw.WithResourceMapper(
 		func(r *http.Request) *structpb.Struct {
 
-			bodyBytes, _ := ioutil.ReadAll(r.Body)
+			var todo Todo
+			bodyBytes, _ := io.ReadAll(r.Body)
+
 			r.Body.Close() //  must close
-			r.Body = ioutil.NopCloser(bytes.NewBuffer(bodyBytes))
+			r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 
-			var email, getOwnerEmailError = GetOwnerEmail(bytes.NewReader(bodyBytes))
-
-			if getOwnerEmailError != nil {
-				log.Println("Failed to get Owner Email:", getOwnerEmailError)
+			if err := json.Unmarshal(bodyBytes, &todo); err != nil {
+				log.Println("Failed to get Owner Email:", err)
+				return nil
 			}
 
 			v := map[string]interface{}{
-				"ownerEmail": email,
+				"ownerEmail": todo.UserEmail,
 			}
 
 			resourceContext, err := structpb.NewStruct(v)
@@ -88,7 +66,7 @@ func AsertoAuthorizer(addr, tenantID, apiKey, policyID, policyRoot, decision str
 	)
 
 	mw.WithPolicyFromURL(policyRoot)
-	return mw, nil
+	return mw
 
 }
 
@@ -109,38 +87,46 @@ func main() {
 	policyRoot := os.Getenv("POLICY_ROOT")
 	decision := "allowed"
 
+
+	// Initialize the Authorizer Client
 	ctx := context.Background()
-	authClient, err := authz.New(
-			ctx,
-			client.WithAddr("authorizer.prod.aserto.com:8443"),
-			client.WithTenantID(tenantID),
-			client.WithAPIKeyAuth(apiKey),
+	authClient, authorizerClientErr := authz.New(
+		ctx,
+		client.WithAddr(authorizerAddr),
+		client.WithTenantID(tenantID),
+		client.WithAPIKeyAuth(apiKey),
 	)
 
-	// Initialize the authorizer
-	authorizer, err := AsertoAuthorizer(authorizerAddr, tenantID, apiKey, policyID, policyRoot, decision)
-	if err != nil {
-		log.Fatal("Failed to create authorizer:", err)
+	if authorizerClientErr != nil {
+		log.Fatal("Failed to create authorizer client:", authorizerClientErr)
 	}
 
+	// Initialize the Authorizer
+	athz := AsertoAuthorizer(authClient.Authorizer, policyID, policyRoot, decision)
 
+
+	// Initialize the Todo Store
 	db, err := store.NewStore()
 	if err != nil {
 		log.Fatal("Failed to create store:", err)
 	}
 
-	dir := directory.Directory{AuthorizerClient: authClient, Context: ctx}
+	// Initialize the Directory
+	dir := directory.Directory{DirectoryClient: authClient.Directory, Context: ctx}
+
+	// Initialize the Server
 	srv := server.Server{Store: db}
 
+	// Set up routes
 	router := mux.NewRouter()
-
 	router.HandleFunc("/user/{sub}", dir.GetUser).Methods("GET")
 	router.HandleFunc("/todos", srv.GetTodos).Methods("GET")
 	router.HandleFunc("/todo", srv.InsertTodo).Methods("POST")
 	router.HandleFunc("/todo", srv.UpdateTodo).Methods("PUT")
 	router.HandleFunc("/todo", srv.DeleteTodo).Methods("DELETE")
 
-	router.Use(authorizer.Handler)
+	// Set up middleware
+	router.Use(athz.Handler)
 
 	srv.Start(router)
 }

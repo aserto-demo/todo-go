@@ -6,18 +6,17 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/aserto-dev/aserto-go/client/authorizer"
 	"github.com/aserto-dev/go-grpc/aserto/authorizer/directory/v1"
 	"github.com/gorilla/mux"
 )
 
 type Directory struct {
-	AuthorizerClient *authorizer.Client
+	DirectoryClient  directory.DirectoryClient
 	Context          context.Context
 }
 
 func (d *Directory) resolveUserID(sub string) (string, error) {
-	idResponse, err := d.AuthorizerClient.Directory.GetIdentity(d.Context,
+	idResponse, err := d.DirectoryClient.GetIdentity(d.Context,
 		&directory.GetIdentityRequest{Identity: sub},
 	)
 
@@ -25,7 +24,7 @@ func (d *Directory) resolveUserID(sub string) (string, error) {
 }
 
 func (d *Directory) resolveUserByUserID(userID string) (*directory.GetUserResponse, error) {
-	userResponse, err := d.AuthorizerClient.Directory.GetUser(d.Context,
+	userResponse, err := d.DirectoryClient.GetUser(d.Context,
 		&directory.GetUserRequest{Id: userID},
 	)
 
