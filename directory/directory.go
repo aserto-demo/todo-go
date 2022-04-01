@@ -3,7 +3,6 @@ package directory
 import (
 	"context"
 	"encoding/json"
-	"log"
 	"net/http"
 
 	"github.com/aserto-dev/go-grpc/aserto/authorizer/directory/v1"
@@ -14,44 +13,40 @@ type Directory struct {
 	DirectoryClient directory.DirectoryClient
 }
 
-func (d *Directory) resolveUserID(ctx context.Context, sub string) (string, error) {
-	idResponse, err := d.DirectoryClient.GetIdentity(ctx,
+func (d *Directory) resolveUser(ctx context.Context, sub string) (*directory.GetUserResponse, error) {
+	idResponse, getIdentityError := d.DirectoryClient.GetIdentity(ctx,
 		&directory.GetIdentityRequest{Identity: sub},
 	)
 
-	return idResponse.GetId(), err
-}
+	if getIdentityError != nil {
+		return nil, getIdentityError
+	}
 
-func (d *Directory) resolveUserByUserID(ctx context.Context, userID string) (*directory.GetUserResponse, error) {
-	userResponse, err := d.DirectoryClient.GetUser(ctx,
-		&directory.GetUserRequest{Id: userID},
+	userResponse, getUserError := d.DirectoryClient.GetUser(ctx,
+		&directory.GetUserRequest{Id: idResponse.GetId()},
 	)
 
-	return userResponse, err
-}
-
-func (d *Directory) resolveUser(ctx context.Context, sub string) (*directory.GetUserResponse, error) {
-	userID, err := d.resolveUserID(ctx, sub)
-	if err != nil {
-		return nil, err
+	if getUserError != nil {
+		return nil, getUserError
 	}
-	userResponse, err := d.resolveUserByUserID(ctx, userID)
 
-	return userResponse, err
+	return userResponse, nil
 
 }
 
 func (d *Directory) GetUser(w http.ResponseWriter, r *http.Request) {
 	sub := mux.Vars(r)["sub"]
 
-	user, err := d.resolveUser(r.Context(), sub)
-	if err != nil {
-		log.Fatal("Failed to resolve users:", err)
+	user, resolveUserError := d.resolveUser(r.Context(), sub)
+	if resolveUserError != nil {
+		http.Error(w, resolveUserError.Error(), http.StatusBadRequest)
+		return
 	}
 
 	w.Header().Add("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(user.Result)
-	if err != nil {
-		log.Fatal("Failed to decode users:", err)
+	encodeJSONError := json.NewEncoder(w).Encode(user.Result)
+	if encodeJSONError != nil {
+		http.Error(w, encodeJSONError.Error(), http.StatusBadRequest)
+		return
 	}
 }
