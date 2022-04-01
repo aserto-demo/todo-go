@@ -71,7 +71,7 @@ func AsertoAuthorizer(authClient authorizer.AuthorizerClient, policyID, policyRo
 
 func main() {
 	// Load environment variables
-	if err := godotenv.Load(); err != nil {
+	if envFileError := godotenv.Load(); envFileError != nil {
 		log.Fatal("Error loading .env file")
 	}
 
@@ -100,12 +100,12 @@ func main() {
 	}
 
 	// Initialize the Authorizer
-	athz := AsertoAuthorizer(authClient.Authorizer, policyID, policyRoot, decision)
+	asertoAuthorizer := AsertoAuthorizer(authClient.Authorizer, policyID, policyRoot, decision)
 
 	// Initialize the Todo Store
-	db, err := store.NewStore()
-	if err != nil {
-		log.Fatal("Failed to create store:", err)
+	db, dbError := store.NewStore()
+	if dbError != nil {
+		log.Fatal("Failed to create store:", dbError)
 	}
 
 	// Initialize the Directory
@@ -123,7 +123,7 @@ func main() {
 	router.HandleFunc("/todo", srv.DeleteTodo).Methods("DELETE")
 
 	// Set up middleware
-	router.Use(athz.Handler)
+	router.Use(asertoAuthorizer.Handler)
 
 	srv.Start(router)
 }
