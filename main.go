@@ -48,7 +48,6 @@ func AsertoAuthorizer(authClient authorizer.AuthorizerClient, policyID, policyRo
 			r.Body.Close() //  must close
 			r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 
-			// Owner Email might not always be present
 			if err := json.Unmarshal(bodyBytes, &todo); err != nil {
 				return nil
 			}
