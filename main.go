@@ -48,8 +48,8 @@ func AsertoAuthorizer(authClient authorizer.AuthorizerClient, policyID, policyRo
 			r.Body.Close() //  must close
 			r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 
+			// Owner Email might not always be present
 			if err := json.Unmarshal(bodyBytes, &todo); err != nil {
-				log.Println("Failed to get Owner Email:", err)
 				return nil
 			}
 
@@ -87,7 +87,6 @@ func main() {
 	policyRoot := os.Getenv("POLICY_ROOT")
 	decision := "allowed"
 
-
 	// Initialize the Authorizer Client
 	ctx := context.Background()
 	authClient, authorizerClientErr := authz.New(
@@ -104,7 +103,6 @@ func main() {
 	// Initialize the Authorizer
 	athz := AsertoAuthorizer(authClient.Authorizer, policyID, policyRoot, decision)
 
-
 	// Initialize the Todo Store
 	db, err := store.NewStore()
 	if err != nil {
@@ -112,7 +110,7 @@ func main() {
 	}
 
 	// Initialize the Directory
-	dir := directory.Directory{DirectoryClient: authClient.Directory, Context: ctx}
+	dir := directory.Directory{DirectoryClient: authClient.Directory}
 
 	// Initialize the Server
 	srv := server.Server{Store: db}

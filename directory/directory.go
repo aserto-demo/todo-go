@@ -11,32 +11,31 @@ import (
 )
 
 type Directory struct {
-	DirectoryClient  directory.DirectoryClient
-	Context          context.Context
+	DirectoryClient directory.DirectoryClient
 }
 
-func (d *Directory) resolveUserID(sub string) (string, error) {
-	idResponse, err := d.DirectoryClient.GetIdentity(d.Context,
+func (d *Directory) resolveUserID(ctx context.Context, sub string) (string, error) {
+	idResponse, err := d.DirectoryClient.GetIdentity(ctx,
 		&directory.GetIdentityRequest{Identity: sub},
 	)
 
 	return idResponse.GetId(), err
 }
 
-func (d *Directory) resolveUserByUserID(userID string) (*directory.GetUserResponse, error) {
-	userResponse, err := d.DirectoryClient.GetUser(d.Context,
+func (d *Directory) resolveUserByUserID(ctx context.Context, userID string) (*directory.GetUserResponse, error) {
+	userResponse, err := d.DirectoryClient.GetUser(ctx,
 		&directory.GetUserRequest{Id: userID},
 	)
 
 	return userResponse, err
 }
 
-func (d *Directory) resolveUser(sub string) (*directory.GetUserResponse, error) {
-	userID, err := d.resolveUserID(sub)
+func (d *Directory) resolveUser(ctx context.Context, sub string) (*directory.GetUserResponse, error) {
+	userID, err := d.resolveUserID(ctx, sub)
 	if err != nil {
 		return nil, err
 	}
-	userResponse, err := d.resolveUserByUserID(userID)
+	userResponse, err := d.resolveUserByUserID(ctx, userID)
 
 	return userResponse, err
 
@@ -45,7 +44,7 @@ func (d *Directory) resolveUser(sub string) (*directory.GetUserResponse, error) 
 func (d *Directory) GetUser(w http.ResponseWriter, r *http.Request) {
 	sub := mux.Vars(r)["sub"]
 
-	user, err := d.resolveUser(sub)
+	user, err := d.resolveUser(r.Context(), sub)
 	if err != nil {
 		log.Fatal("Failed to resolve users:", err)
 	}
