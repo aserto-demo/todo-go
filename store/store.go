@@ -92,14 +92,14 @@ func NewStore() (*Store, error) {
 
 	sqliteDatabase, _ := sql.Open("sqlite3", dbPath) // Open the created SQLite File
 
-	createTableErr := createTable(sqliteDatabase)
-	if createTableErr != nil {
-		return nil, createTableErr
+	createTodosTableErr := createTodosTable(sqliteDatabase)
+	if createTodosTableErr != nil {
+		return nil, createTodosTableErr
 	}
 	return &Store{DB: sqliteDatabase}, nil
 }
 
-func createTable(db *sql.DB) error {
+func createTodosTable(db *sql.DB) error {
 	log.Println("Create todos table...")
 
 	statement, err := db.Prepare(createTodoTableSQL) // Prepare SQL Statement
