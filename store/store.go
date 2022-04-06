@@ -19,7 +19,6 @@ const createTodoTableSQL = `CREATE TABLE IF NOT EXISTS todos (
 	ID TEXT PRIMARY KEY,
 	Title TEXT NOT NULL,
 	Completed BOOLEAN NOT NULL,
-	OwnerEmail TEXT NOT NULL,
 	OwnerID TEXT NOT NULL
 );`
 
@@ -50,7 +49,7 @@ func (s *Store) GetTodos() ([]Todo, error) {
 }
 
 func (s *Store) InsertTodo(todo Todo) error {
-	_, err := s.DB.Exec(`INSERT INTO todos (ID, OwnerEmail, OwnerID, Title, Completed) VALUES (?, ?, ?, ?, ?)`, todo.ID, todo.OwnerEmail, todo.OwnerID, todo.Title, todo.Completed)
+	_, err := s.DB.Exec(`INSERT INTO todos (ID, OwnerID, Title, Completed) VALUES (?, ?, ?, ?)`, todo.ID, todo.OwnerID, todo.Title, todo.Completed)
 
 	if err != nil {
 		return err
@@ -60,7 +59,7 @@ func (s *Store) InsertTodo(todo Todo) error {
 }
 
 func (s *Store) UpdateTodo(todo Todo) error {
-	_, err := s.DB.Exec(`UPDATE todos SET OwnerEmail=?, OwnerID=?, Title=?, Completed=? WHERE ID=?`, todo.OwnerEmail, todo.OwnerID, todo.Title, todo.Completed, todo.ID)
+	_, err := s.DB.Exec(`UPDATE todos SET OwnerID=?, Title=?, Completed=? WHERE ID=?`, todo.OwnerID, todo.Title, todo.Completed, todo.ID)
 
 	if err != nil {
 		return err

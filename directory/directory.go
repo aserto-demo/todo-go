@@ -3,7 +3,6 @@ package directory
 import (
 	"context"
 	"encoding/json"
-	"log"
 	"net/http"
 
 	"github.com/aserto-dev/go-grpc/aserto/authorizer/directory/v1"
@@ -37,7 +36,6 @@ func (d *Directory) resolveUser(ctx context.Context, userID string) (*directory.
 
 func (d *Directory) GetUser(w http.ResponseWriter, r *http.Request) {
 	userID := mux.Vars(r)["userID"]
-	log.Print("userID: ", userID)
 
 	user, resolveUserError := d.resolveUser(r.Context(), userID)
 	if resolveUserError != nil {

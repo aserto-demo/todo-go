@@ -53,8 +53,7 @@ func AsertoAuthorizer(authClient authorizer.AuthorizerClient, policyID, policyRo
 			}
 
 			v := map[string]interface{}{
-				"ownerEmail": todo.OwnerEmail,
-				"ownerId":    todo.OwnerID,
+				"ownerID": todo.OwnerID,
 			}
 
 			resourceContext, err := structpb.NewStruct(v)
