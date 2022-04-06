@@ -117,7 +117,7 @@ func main() {
 
 	// Set up routes
 	router := mux.NewRouter()
-	router.HandleFunc("/user/{sub}", dir.GetUser).Methods("GET")
+	router.HandleFunc("/user/{userID}", dir.GetUser).Methods("GET")
 	router.HandleFunc("/todos", srv.GetTodos).Methods("GET")
 	router.HandleFunc("/todo", srv.InsertTodo).Methods("POST")
 	router.HandleFunc("/todo", srv.UpdateTodo).Methods("PUT")

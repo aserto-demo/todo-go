@@ -3,6 +3,7 @@ package directory
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"net/http"
 
 	"github.com/aserto-dev/go-grpc/aserto/authorizer/directory/v1"
@@ -13,9 +14,9 @@ type Directory struct {
 	DirectoryClient directory.DirectoryClient
 }
 
-func (d *Directory) resolveUser(ctx context.Context, sub string) (*directory.GetUserResponse, error) {
+func (d *Directory) resolveUser(ctx context.Context, userID string) (*directory.GetUserResponse, error) {
 	idResponse, getIdentityError := d.DirectoryClient.GetIdentity(ctx,
-		&directory.GetIdentityRequest{Identity: sub},
+		&directory.GetIdentityRequest{Identity: userID},
 	)
 
 	if getIdentityError != nil {
@@ -35,9 +36,10 @@ func (d *Directory) resolveUser(ctx context.Context, sub string) (*directory.Get
 }
 
 func (d *Directory) GetUser(w http.ResponseWriter, r *http.Request) {
-	sub := mux.Vars(r)["sub"]
+	userID := mux.Vars(r)["userID"]
+	log.Print("userID: ", userID)
 
-	user, resolveUserError := d.resolveUser(r.Context(), sub)
+	user, resolveUserError := d.resolveUser(r.Context(), userID)
 	if resolveUserError != nil {
 		http.Error(w, resolveUserError.Error(), http.StatusBadRequest)
 		return
