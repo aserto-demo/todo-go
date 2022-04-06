@@ -2,7 +2,6 @@ package server
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 
@@ -107,11 +106,11 @@ func cors(h http.Handler) http.Handler {
 }
 
 func (s *Server) Start(handler http.Handler) {
-	fmt.Println("Staring server on 0.0.0.0:8080")
+	log.Println("Staring server on 0.0.0.0:3001")
 
 	srv := http.Server{
 		Handler: cors(handler),
-		Addr:    "0.0.0.0:8080",
+		Addr:    "0.0.0.0:3001",
 	}
 	log.Fatal(srv.ListenAndServe())
 }

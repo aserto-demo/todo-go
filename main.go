@@ -53,7 +53,8 @@ func AsertoAuthorizer(authClient authorizer.AuthorizerClient, policyID, policyRo
 			}
 
 			v := map[string]interface{}{
-				"ownerEmail": todo.UserEmail,
+				"ownerEmail": todo.OwnerEmail,
+				"ownerId":    todo.OwnerID,
 			}
 
 			resourceContext, err := structpb.NewStruct(v)
@@ -123,6 +124,7 @@ func main() {
 	router.HandleFunc("/todo", srv.DeleteTodo).Methods("DELETE")
 
 	// Set up middleware
+	// log.Println(asertoAuthorizer)
 	router.Use(asertoAuthorizer.Handler)
 
 	srv.Start(router)
