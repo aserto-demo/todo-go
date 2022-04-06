@@ -86,21 +86,18 @@ func main() {
 	policyRoot := os.Getenv("POLICY_ROOT")
 	decision := "allowed"
 
-	// Initialize the Authorizer Client
+	// Initialize the Aserto Client
 	ctx := context.Background()
-	authClient, authorizerClientErr := authz.New(
+	asertoClient, asertoClientErr := authz.New(
 		ctx,
 		client.WithAddr(authorizerAddr),
 		client.WithTenantID(tenantID),
 		client.WithAPIKeyAuth(apiKey),
 	)
 
-	if authorizerClientErr != nil {
-		log.Fatal("Failed to create authorizer client:", authorizerClientErr)
+	if asertoClientErr != nil {
+		log.Fatal("Failed to create authorizer client:", asertoClientErr)
 	}
-
-	// Initialize the Authorizer
-	asertoAuthorizer := AsertoAuthorizer(authClient.Authorizer, policyID, policyRoot, decision)
 
 	// Initialize the Todo Store
 	db, dbError := store.NewStore()
@@ -109,21 +106,23 @@ func main() {
 	}
 
 	// Initialize the Directory
-	dir := directory.Directory{DirectoryClient: authClient.Directory}
+	dir := directory.Directory{DirectoryClient: asertoClient.Directory}
 
 	// Initialize the Server
 	srv := server.Server{Store: db}
 
 	// Set up routes
 	router := mux.NewRouter()
-	router.HandleFunc("/user/{userID}", dir.GetUser).Methods("GET")
 	router.HandleFunc("/todos", srv.GetTodos).Methods("GET")
 	router.HandleFunc("/todo", srv.InsertTodo).Methods("POST")
 	router.HandleFunc("/todo", srv.UpdateTodo).Methods("PUT")
 	router.HandleFunc("/todo", srv.DeleteTodo).Methods("DELETE")
+	router.HandleFunc("/user/{userID}", dir.GetUser).Methods("GET")
+
+	// Initialize the Authorizer
+	asertoAuthorizer := AsertoAuthorizer(asertoClient.Authorizer, policyID, policyRoot, decision)
 
 	// Set up middleware
-	// log.Println(asertoAuthorizer)
 	router.Use(asertoAuthorizer.Handler)
 
 	srv.Start(router)
