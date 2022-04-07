@@ -1,16 +1,11 @@
 package main
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
-	"io"
 	"log"
-	"net/http"
 	"os"
 
 	"github.com/joho/godotenv"
-	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/aserto-dev/aserto-go/client"
 	authz "github.com/aserto-dev/aserto-go/client/authorizer"
@@ -22,13 +17,9 @@ import (
 	"todo-go/directory"
 	"todo-go/server"
 	"todo-go/store"
-	"todo-go/structs"
 )
 
-type Todo = structs.Todo
-
 func AsertoAuthorizer(authClient authorizer.AuthorizerClient, policyID, policyRoot, decision string) *std.Middleware {
-
 	mw := std.New(
 		authClient,
 		middleware.Policy{
@@ -38,35 +29,8 @@ func AsertoAuthorizer(authClient authorizer.AuthorizerClient, policyID, policyRo
 	)
 
 	mw.Identity.JWT().FromHeader("Authorization")
-
-	mw.WithResourceMapper(
-		func(r *http.Request) *structpb.Struct {
-
-			var todo Todo
-			bodyBytes, _ := io.ReadAll(r.Body)
-
-			r.Body.Close() //  must close
-			r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
-
-			if err := json.Unmarshal(bodyBytes, &todo); err != nil {
-				return nil
-			}
-
-			v := map[string]interface{}{
-				"ownerID": todo.OwnerID,
-			}
-
-			resourceContext, err := structpb.NewStruct(v)
-			if err != nil {
-				log.Println(err)
-			}
-			return resourceContext
-		},
-	)
-
 	mw.WithPolicyFromURL(policyRoot)
 	return mw
-
 }
 
 func main() {
@@ -115,8 +79,8 @@ func main() {
 	router := mux.NewRouter()
 	router.HandleFunc("/todos", srv.GetTodos).Methods("GET")
 	router.HandleFunc("/todo", srv.InsertTodo).Methods("POST")
-	router.HandleFunc("/todo", srv.UpdateTodo).Methods("PUT")
-	router.HandleFunc("/todo", srv.DeleteTodo).Methods("DELETE")
+	router.HandleFunc("/todo/{ownerID}", srv.UpdateTodo).Methods("PUT")
+	router.HandleFunc("/todo/{ownerID}", srv.DeleteTodo).Methods("DELETE")
 	router.HandleFunc("/user/{userID}", dir.GetUser).Methods("GET")
 
 	// Initialize the Authorizer
