@@ -13,9 +13,6 @@ import (
 
 	"github.com/aserto-dev/aserto-go/client"
 	aserto "github.com/aserto-dev/aserto-go/client/authorizer"
-	"github.com/aserto-dev/aserto-go/middleware"
-	"github.com/aserto-dev/aserto-go/middleware/http/std"
-	"github.com/aserto-dev/go-grpc-authz/aserto/authorizer/authorizer/v1"
 
 	"github.com/gorilla/mux"
 
@@ -23,20 +20,6 @@ import (
 	"todo-go/server"
 	"todo-go/store"
 )
-
-func AsertoAuthorizer(authClient authorizer.AuthorizerClient, policyID, policyRoot, decision string) *std.Middleware {
-	mw := std.New(
-		authClient,
-		middleware.Policy{
-			ID:       policyID,
-			Decision: decision,
-		},
-	)
-
-	mw.Identity.JWT().FromHeader("Authorization")
-	mw.WithPolicyFromURL(policyRoot)
-	return mw
-}
 
 func JWTValidator(jwksKeysURL string) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
@@ -69,11 +52,8 @@ func main() {
 		authorizerAddr = "authorizer.prod.aserto.com:8443"
 	}
 	apiKey := os.Getenv("AUTHORIZER_API_KEY")
-	policyID := os.Getenv("POLICY_ID")
 	tenantID := os.Getenv("TENANT_ID")
-	policyRoot := os.Getenv("POLICY_ROOT")
 	jwksKeysUrl := os.Getenv("JWKS_URI")
-	decision := "allowed"
 
 	// Initialize the Aserto Client
 	ctx := context.Background()
@@ -112,11 +92,6 @@ func main() {
 	jwtValidator := JWTValidator(jwksKeysUrl)
 	// Set up JWT validation middleware
 	router.Use(jwtValidator)
-
-	// Initialize the Authorizer
-	asertoAuthorizer := AsertoAuthorizer(asertoClient.Authorizer, policyID, policyRoot, decision)
-	// Set up authorization middleware
-	router.Use(asertoAuthorizer.Handler)
 
 	srv.Start(router)
 }
