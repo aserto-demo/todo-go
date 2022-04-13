@@ -21,6 +21,7 @@ import (
 	"todo-go/store"
 )
 
+// JWTValidator is a middleware that validates JWT tokens against the JWKS issuer
 func JWTValidator(jwksKeysURL string) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
