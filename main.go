@@ -38,13 +38,14 @@ func AsertoAuthorizer(authClient authorizer.AuthorizerClient, policyID, policyRo
 	return mw
 }
 
-func JWTValidator(ctx context.Context, jwksKeysURL string) func(next http.Handler) http.Handler {
+func JWTValidator(jwksKeysURL string) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			keys, err := jwk.Fetch(ctx, jwksKeysURL)
+			keys, err := jwk.Fetch(r.Context(), jwksKeysURL)
 			authorizationHeader := r.Header.Get("Authorization")
 			tokenBytes := []byte(strings.Replace(authorizationHeader, "Bearer ", "", 1))
 
+			jwt.WithVerifyAuto(nil)
 			_, err = jwt.Parse(tokenBytes, jwt.WithKeySet(keys))
 
 			if err != nil {
@@ -108,7 +109,7 @@ func main() {
 	router.HandleFunc("/user/{userID}", dir.GetUser).Methods("GET")
 
 	// Initialize the JWT Validator
-	jwtValidator := JWTValidator(ctx, jwksKeysUrl)
+	jwtValidator := JWTValidator(jwksKeysUrl)
 
 	// Initialize the Authorizer
 	asertoAuthorizer := AsertoAuthorizer(asertoClient.Authorizer, policyID, policyRoot, decision)
