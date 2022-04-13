@@ -68,11 +68,13 @@ func main() {
 	if authorizerAddr == "" {
 		authorizerAddr = "authorizer.prod.aserto.com:8443"
 	}
+
 	apiKey := os.Getenv("AUTHORIZER_API_KEY")
-	policyID := os.Getenv("POLICY_ID")
 	tenantID := os.Getenv("TENANT_ID")
-	policyRoot := os.Getenv("POLICY_ROOT")
 	jwksKeysUrl := os.Getenv("JWKS_URI")
+
+	policyID := os.Getenv("POLICY_ID")
+	policyRoot := os.Getenv("POLICY_ROOT")
 	decision := "allowed"
 
 	// Initialize the Aserto Client
