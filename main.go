@@ -49,7 +49,7 @@ func JWTValidator(jwksKeysURL string) func(next http.Handler) http.Handler {
 			_, err = jwt.Parse(tokenBytes, jwt.WithKeySet(keys))
 
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				http.Error(w, err.Error(), http.StatusForbidden)
 			} else {
 				next.ServeHTTP(w, r)
 			}
