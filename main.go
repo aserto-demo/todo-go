@@ -3,15 +3,20 @@ package main
 import (
 	"context"
 	"log"
+	"net/http"
 	"os"
+	"strings"
 
 	"github.com/joho/godotenv"
+	"github.com/lestrrat-go/jwx/v2/jwk"
+	"github.com/lestrrat-go/jwx/v2/jwt"
 
 	"github.com/aserto-dev/aserto-go/client"
-	authz "github.com/aserto-dev/aserto-go/client/authorizer"
+	aserto "github.com/aserto-dev/aserto-go/client/authorizer"
 	"github.com/aserto-dev/aserto-go/middleware"
 	"github.com/aserto-dev/aserto-go/middleware/http/std"
 	"github.com/aserto-dev/go-grpc-authz/aserto/authorizer/authorizer/v1"
+
 	"github.com/gorilla/mux"
 
 	"todo-go/directory"
@@ -33,6 +38,25 @@ func AsertoAuthorizer(authClient authorizer.AuthorizerClient, policyID, policyRo
 	return mw
 }
 
+func JWTValidator(jwksKeysURL string) func(next http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			keys, err := jwk.Fetch(r.Context(), jwksKeysURL)
+			authorizationHeader := r.Header.Get("Authorization")
+			tokenBytes := []byte(strings.Replace(authorizationHeader, "Bearer ", "", 1))
+
+			jwt.WithVerifyAuto(nil)
+			_, err = jwt.Parse(tokenBytes, jwt.WithKeySet(keys))
+
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusUnauthorized)
+			} else {
+				next.ServeHTTP(w, r)
+			}
+		})
+	}
+}
+
 func main() {
 	// Load environment variables
 	if envFileError := godotenv.Load(); envFileError != nil {
@@ -48,11 +72,12 @@ func main() {
 	policyID := os.Getenv("POLICY_ID")
 	tenantID := os.Getenv("TENANT_ID")
 	policyRoot := os.Getenv("POLICY_ROOT")
+	jwksKeysUrl := os.Getenv("JWKS_URI")
 	decision := "allowed"
 
 	// Initialize the Aserto Client
 	ctx := context.Background()
-	asertoClient, asertoClientErr := authz.New(
+	asertoClient, asertoClientErr := aserto.New(
 		ctx,
 		client.WithAddr(authorizerAddr),
 		client.WithTenantID(tenantID),
@@ -83,10 +108,14 @@ func main() {
 	router.HandleFunc("/todo/{ownerID}", srv.DeleteTodo).Methods("DELETE")
 	router.HandleFunc("/user/{userID}", dir.GetUser).Methods("GET")
 
+	// Initialize the JWT Validator
+	jwtValidator := JWTValidator(jwksKeysUrl)
+
 	// Initialize the Authorizer
 	asertoAuthorizer := AsertoAuthorizer(asertoClient.Authorizer, policyID, policyRoot, decision)
 
 	// Set up middleware
+	router.Use(jwtValidator)
 	router.Use(asertoAuthorizer.Handler)
 
 	srv.Start(router)
