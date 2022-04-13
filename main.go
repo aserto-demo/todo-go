@@ -110,12 +110,12 @@ func main() {
 
 	// Initialize the JWT Validator
 	jwtValidator := JWTValidator(jwksKeysUrl)
+	// Set up JWT validation middleware
+	router.Use(jwtValidator)
 
 	// Initialize the Authorizer
 	asertoAuthorizer := AsertoAuthorizer(asertoClient.Authorizer, policyID, policyRoot, decision)
-
-	// Set up middleware
-	router.Use(jwtValidator)
+	// Set up authorization middleware
 	router.Use(asertoAuthorizer.Handler)
 
 	srv.Start(router)
