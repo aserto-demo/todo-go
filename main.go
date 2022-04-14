@@ -21,6 +21,7 @@ import (
 	"todo-go/store"
 )
 
+// JWTValidator is a middleware that validates JWT tokens against the JWKS issuer
 func JWTValidator(jwksKeysURL string) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -46,13 +47,13 @@ func main() {
 		log.Fatal("Error loading .env file")
 	}
 
-	authorizerAddr := os.Getenv("AUTHORIZER_ADDRESS")
+	authorizerAddr := os.Getenv("ASERTO_AUTHORIZER_ADDRESS")
 
 	if authorizerAddr == "" {
 		authorizerAddr = "authorizer.prod.aserto.com:8443"
 	}
-	apiKey := os.Getenv("AUTHORIZER_API_KEY")
-	tenantID := os.Getenv("TENANT_ID")
+	apiKey := os.Getenv("ASERTO_AUTHORIZER_API_KEY")
+	tenantID := os.Getenv("ASERTO_TENANT_ID")
 	jwksKeysUrl := os.Getenv("JWKS_URI")
 
 	// Initialize the Aserto Client
