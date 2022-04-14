@@ -1,6 +1,6 @@
 # Todo App with Aserto Authorization
 
-This application demonstrates how to use Aserto's Go SDK to add an authorization layer to a simple todo app. For complete instructions on how to use the application, see this [tutorial](https://aserto.com/blog/todo-app-with-aserto-go-sdk).
+This application demonstrates how to use Aserto's Go SDK to add an authorization layer to a simple todo app. For complete instructions on how to use the application, see this [tutorial](https://www.aserto.com/blog/adding-authorization-to-a-go-app-with-aserto).
 
 ## Set up an `.env` file
 Create the `.env` file:
