@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"net/url"
+
 	"github.com/aserto-dev/go-grpc/aserto/authorizer/directory/v1"
 	"github.com/gorilla/mux"
 )
@@ -36,6 +38,12 @@ func (d *Directory) resolveUser(ctx context.Context, userID string) (*directory.
 
 func (d *Directory) GetUser(w http.ResponseWriter, r *http.Request) {
 	userID := mux.Vars(r)["userID"]
+	_, err := url.QueryUnescape(userID)
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 
 	user, resolveUserError := d.resolveUser(r.Context(), userID)
 	if resolveUserError != nil {

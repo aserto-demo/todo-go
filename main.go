@@ -63,18 +63,18 @@ func main() {
 		log.Fatal("Error loading .env file")
 	}
 
-	authorizerAddr := os.Getenv("AUTHORIZER_ADDRESS")
+	authorizerAddr := os.Getenv("ASERTO_AUTHORIZER_SERVICE_URL")
 
 	if authorizerAddr == "" {
 		authorizerAddr = "authorizer.prod.aserto.com:8443"
 	}
 
-	apiKey := os.Getenv("AUTHORIZER_API_KEY")
-	tenantID := os.Getenv("TENANT_ID")
-	jwksKeysUrl := os.Getenv("JWKS_URI")
+	apiKey := os.Getenv("ASERTO_AUTHORIZER_API_KEY")
+	tenantID := os.Getenv("ASERTO_TENANT_ID")
+	jwksKeysUrl := os.Getenv("ASERTO_JWKS_URI")
 
-	policyID := os.Getenv("POLICY_ID")
-	policyRoot := os.Getenv("POLICY_ROOT")
+	policyID := os.Getenv("ASERTO_POLICY_ID")
+	policyRoot := os.Getenv("ASERTO_POLICY_ROOT")
 	decision := "allowed"
 
 	// Initialize the Aserto Client
