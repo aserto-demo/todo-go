@@ -47,7 +47,7 @@ func main() {
 		log.Fatal("Error loading .env file")
 	}
 
-	authorizerAddr := os.Getenv("ASERTO_AUTHORIZER_ADDRESS")
+	authorizerAddr := os.Getenv("ASERTO_AUTHORIZER_SERVICE_URL")
 
 	if authorizerAddr == "" {
 		authorizerAddr = "authorizer.prod.aserto.com:8443"
