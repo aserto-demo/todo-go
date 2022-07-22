@@ -54,7 +54,6 @@ func main() {
 	}
 	apiKey := os.Getenv("ASERTO_AUTHORIZER_API_KEY")
 	tenantID := os.Getenv("ASERTO_TENANT_ID")
-	jwksKeysUrl := os.Getenv("JWKS_URI")
 
 	// Initialize the Aserto Client
 	ctx := context.Background()
@@ -88,11 +87,6 @@ func main() {
 	router.HandleFunc("/todo/{ownerID}", srv.UpdateTodo).Methods("PUT")
 	router.HandleFunc("/todo/{ownerID}", srv.DeleteTodo).Methods("DELETE")
 	router.HandleFunc("/user/{userID}", dir.GetUser).Methods("GET")
-
-	// Initialize the JWT Validator
-	jwtValidator := JWTValidator(jwksKeysUrl)
-	// Set up JWT validation middleware
-	router.Use(jwtValidator)
 
 	srv.Start(router)
 }
