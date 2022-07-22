@@ -71,7 +71,7 @@ func main() {
 
 	apiKey := os.Getenv("ASERTO_AUTHORIZER_API_KEY")
 	tenantID := os.Getenv("ASERTO_TENANT_ID")
-	jwksKeysUrl := os.Getenv("ASERTO_JWKS_URI")
+	jwksKeysUrl := os.Getenv("JWKS_URI")
 
 	policyID := os.Getenv("ASERTO_POLICY_ID")
 	policyRoot := os.Getenv("ASERTO_POLICY_ROOT")
